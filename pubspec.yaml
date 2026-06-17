@@ -1,0 +1,35 @@
+name: donateid
+description: DonateID — Aplikasi Donasi & Penggalangan Dana
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP client
+  http: ^1.2.1
+
+  # Token & session storage (hanya untuk token, bukan data)
+  shared_preferences: ^2.2.2
+
+  # State management
+  provider: ^6.1.1
+
+  # Image picker (untuk upload gambar kampanye)
+  image_picker: ^1.1.2
+
+  # Utilities
+  intl: ^0.19.0
+  uuid: ^4.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
