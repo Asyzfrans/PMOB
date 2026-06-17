@@ -76,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
               body: RefreshIndicator(
                 color: AppColors.brand700,
                 onRefresh: () async =>
-                    context.read<CampaignProvider>().loadActive();
+                    context.read<CampaignProvider>().loadActive(),
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(20),

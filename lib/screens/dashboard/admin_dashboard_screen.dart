@@ -29,7 +29,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CampaignProvider>().loadAll();
       
-      context.read<DonationProvider>().loadDonations();
+      context.read<DonationProvider>().loadAll();
     });
   }
 

@@ -29,7 +29,7 @@ class ApiClient {
   // Development (iOS simulator):     http://127.0.0.1:8000/api
   // Development (device fisik):      http://192.168.x.x:8000/api
   // Production:                       https://api.donateid.com/api
-  static const String _baseUrl = 'http://10.0.2.2:8000/api';
+  static const String _baseUrl = 'http://10.0.2.2/api';
 
   final TokenStorage _tokenStorage;
 
