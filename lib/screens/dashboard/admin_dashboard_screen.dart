@@ -28,7 +28,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     _tabs = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CampaignProvider>().loadAll();
-      
+
       context.read<DonationProvider>().loadAll();
     });
   }
@@ -41,15 +41,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final auth      = context.watch<AuthProvider>();
-    final user      = auth.currentUser!;
+    final auth = context.watch<AuthProvider>();
+    final user = auth.currentUser!;
     final campaigns = context.watch<CampaignProvider>();
     final donations = context.watch<DonationProvider>();
-    final tt        = Theme.of(context).textTheme;
+    final tt = Theme.of(context).textTheme;
 
     final allCampaigns = campaigns.allCampaigns;
     final allDonations = donations.allDonations;
-    final totalFunds   = allCampaigns.fold(0.0, (s, c) => s + c.collected);
+    final totalFunds = allCampaigns.fold(0.0, (s, c) => s + c.collected);
 
     return Scaffold(
       body: Column(
@@ -63,9 +63,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   backgroundColor: Colors.white,
                   elevation: 0,
                   surfaceTintColor: Colors.transparent,
-                  leading: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: UserAvatar(initial: user.initial, size: 36),
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: AppColors.ink900),
+                    tooltip: 'Kembali ke Beranda',
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                   title: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,9 +106,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                     size: 20))
                             : const Icon(Icons.pending_outlined, size: 20),
                       ),
-                      const Tab(text: 'Kampanye',
+                      const Tab(
+                          text: 'Kampanye',
                           icon: Icon(Icons.campaign_outlined, size: 20)),
-                      const Tab(text: 'Donasi',
+                      const Tab(
+                          text: 'Donasi',
                           icon: Icon(Icons.history_outlined, size: 20)),
                     ],
                   ),
@@ -121,11 +124,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 14),
                     child: Row(children: [
-                      _AdminStat(label: 'Kampanye',
-                          value: '${allCampaigns.length}'),
+                      _AdminStat(
+                          label: 'Kampanye', value: '${allCampaigns.length}'),
                       _vDivider(),
-                      _AdminStat(label: 'Donasi',
-                          value: '${allDonations.length}'),
+                      _AdminStat(
+                          label: 'Donasi', value: '${allDonations.length}'),
                       _vDivider(),
                       _AdminStat(label: 'Dana', value: fmtMoney(totalFunds)),
                     ]),
@@ -150,7 +153,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   Widget _vDivider() => Container(
-      width: 1, height: 32, color: AppColors.ink200,
+      width: 1,
+      height: 32,
+      color: AppColors.ink200,
       margin: const EdgeInsets.symmetric(horizontal: 12));
 }
 
@@ -162,8 +167,8 @@ class _AdminStat extends StatelessWidget {
   Widget build(BuildContext context) => Expanded(
         child: Column(children: [
           Text(value,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: 18)),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
           Text(label,
               style: const TextStyle(fontSize: 11, color: AppColors.ink600)),
         ]),
@@ -192,10 +197,9 @@ class _PendingTab extends StatelessWidget {
       itemBuilder: (ctx, i) => _ReviewCard(
         campaign: pending[i],
         onApprove: () => campaigns.approveCampaign(pending[i].id),
-        onReject:  () => campaigns.rejectCampaign(pending[i].id),
+        onReject: () => campaigns.rejectCampaign(pending[i].id),
         onView: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) =>
-                CampaignDetailScreen(campaignId: pending[i].id))),
+            builder: (_) => CampaignDetailScreen(campaignId: pending[i].id))),
       ),
     );
   }
@@ -205,8 +209,10 @@ class _ReviewCard extends StatelessWidget {
   final CampaignModel campaign;
   final VoidCallback onApprove, onReject, onView;
   const _ReviewCard({
-    required this.campaign, required this.onApprove,
-    required this.onReject, required this.onView,
+    required this.campaign,
+    required this.onApprove,
+    required this.onReject,
+    required this.onView,
   });
 
   @override
@@ -215,7 +221,8 @@ class _ReviewCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.ink200),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -223,7 +230,8 @@ class _ReviewCard extends StatelessWidget {
           Expanded(
             child: Text(campaign.title,
                 style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                maxLines: 2, overflow: TextOverflow.ellipsis),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
           ),
           const SizedBox(width: 8),
           StatusBadge(campaign.status),
@@ -231,8 +239,8 @@ class _ReviewCard extends StatelessWidget {
         const SizedBox(height: 4),
         Text('oleh ${campaign.creatorName}', style: tt.bodySmall),
         const SizedBox(height: 6),
-        Text(campaign.description, style: tt.bodyMedium,
-            maxLines: 3, overflow: TextOverflow.ellipsis),
+        Text(campaign.description,
+            style: tt.bodyMedium, maxLines: 3, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 6),
         Text('Target: ${fmtMoney(campaign.target)} • ${campaign.category.name}',
             style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
@@ -265,8 +273,8 @@ class _ReviewCard extends StatelessWidget {
           OutlinedButton(
             onPressed: onView,
             style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 10, horizontal: 12)),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 12)),
             child: const Icon(Icons.open_in_new, size: 16),
           ),
         ]),
@@ -283,8 +291,11 @@ class _AllCampaignsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final all = campaigns.allCampaigns;
-    if (all.isEmpty) return const EmptyState(
-        icon: Icons.campaign_outlined, title: 'Belum ada kampanye', subtitle: '');
+    if (all.isEmpty)
+      return const EmptyState(
+          icon: Icons.campaign_outlined,
+          title: 'Belum ada kampanye',
+          subtitle: '');
 
     return ListView.separated(
       padding: const EdgeInsets.all(16),
@@ -294,30 +305,36 @@ class _AllCampaignsTab extends StatelessWidget {
         final c = all[i];
         return Container(
           decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(14),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.ink200),
           ),
           child: ListTile(
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: SizedBox(width: 48, height: 48,
+              child: SizedBox(
+                width: 48,
+                height: 48,
                 child: c.imageUrl.startsWith('http')
-                    ? Image.network(c.imageUrl, fit: BoxFit.cover,
+                    ? Image.network(c.imageUrl,
+                        fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) =>
                             Container(color: AppColors.ink100))
-                    : Container(color: AppColors.ink100,
+                    : Container(
+                        color: AppColors.ink100,
                         child: const Icon(Icons.campaign_outlined,
                             color: AppColors.ink500)),
               ),
             ),
             title: Text(c.title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w700, fontSize: 14),
-                maxLines: 1, overflow: TextOverflow.ellipsis),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
             subtitle: Text(
               '${fmtMoney(c.collected)} / ${fmtMoney(c.target)} • ${c.donors} donatur',
               style: const TextStyle(fontSize: 12, color: AppColors.ink600),
@@ -332,27 +349,34 @@ class _AllCampaignsTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12)),
                 onSelected: (action) {
                   if (action == 'approve') campaigns.approveCampaign(c.id);
-                  if (action == 'reject')  campaigns.rejectCampaign(c.id);
-                  if (action == 'delete')  _confirmDelete(context, c, campaigns);
+                  if (action == 'reject') campaigns.rejectCampaign(c.id);
+                  if (action == 'delete') _confirmDelete(context, c, campaigns);
                 },
                 itemBuilder: (_) => [
                   if (c.status != CampaignStatus.active)
-                    const PopupMenuItem(value: 'approve',
+                    const PopupMenuItem(
+                        value: 'approve',
                         child: Row(children: [
                           Icon(Icons.check, size: 16, color: AppColors.success),
-                          SizedBox(width: 8), Text('Setujui')])),
+                          SizedBox(width: 8),
+                          Text('Setujui')
+                        ])),
                   if (c.status != CampaignStatus.rejected)
-                    const PopupMenuItem(value: 'reject',
+                    const PopupMenuItem(
+                        value: 'reject',
                         child: Row(children: [
                           Icon(Icons.close, size: 16, color: AppColors.error),
-                          SizedBox(width: 8), Text('Tolak')])),
-                  const PopupMenuItem(value: 'delete',
+                          SizedBox(width: 8),
+                          Text('Tolak')
+                        ])),
+                  const PopupMenuItem(
+                      value: 'delete',
                       child: Row(children: [
                         Icon(Icons.delete_outline,
                             size: 16, color: AppColors.error),
                         SizedBox(width: 8),
-                        Text('Hapus',
-                            style: TextStyle(color: AppColors.error))])),
+                        Text('Hapus', style: TextStyle(color: AppColors.error))
+                      ])),
                 ],
               ),
             ]),
@@ -364,22 +388,20 @@ class _AllCampaignsTab extends StatelessWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, CampaignModel c,
-      CampaignProvider provider) {
+  void _confirmDelete(
+      BuildContext context, CampaignModel c, CampaignProvider provider) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hapus Kampanye?'),
-        content: Text(
-            'Kampanye "${c.title}" akan dihapus permanen.'),
+        content: Text('Kampanye "${c.title}" akan dihapus permanen.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Batal')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () {
               provider.deleteCampaign(c.id);
               Navigator.pop(context);
@@ -399,8 +421,9 @@ class _DonationsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (donations.isEmpty) return const EmptyState(
-        icon: Icons.inbox_outlined, title: 'Belum ada donasi', subtitle: '');
+    if (donations.isEmpty)
+      return const EmptyState(
+          icon: Icons.inbox_outlined, title: 'Belum ada donasi', subtitle: '');
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: donations.length,

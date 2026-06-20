@@ -1,5 +1,14 @@
 // lib/main.dart
-// REST version — tidak ada Firebase
+//
+// PERUBAHAN NAVIGASI:
+// 1. HomeScreen sekarang jadi root permanen untuk SEMUA role (termasuk admin/fundraiser).
+// 2. Setelah login/register, user diarahkan balik ke HomeScreen ('/'),
+//    BUKAN langsung ke dashboard. Dashboard dibuka manual lewat tombol di HomeScreen.
+// 3. _AuthGuard yang lama (auto-redirect saat buka root) DIHAPUS.
+//    Sekarang AuthGuard hanya dipakai untuk melindungi /dashboard route
+//    dari akses role yang salah, tanpa mengambil alih root.
+// 4. Dashboard, Profile, dan DonationHistory diakses lewat Navigator.push()
+//    biasa (bukan pushReplacement), jadi tombol back selalu berfungsi.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -24,6 +33,8 @@ import 'screens/auth/register_screen.dart';
 import 'screens/dashboard/donor_dashboard_screen.dart';
 import 'screens/dashboard/fundraiser_dashboard_screen.dart';
 import 'screens/dashboard/admin_dashboard_screen.dart';
+import 'screens/profile/profile_screen.dart';
+import 'screens/donation/donation_history_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +49,6 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // ── Dependency injection ──────────────────────────
   final prefs        = await SharedPreferences.getInstance();
   final tokenStorage = TokenStorage(prefs);
   final apiClient    = ApiClient(tokenStorage);
@@ -78,6 +88,10 @@ class DonateIDApp extends StatelessWidget {
       title: 'DonateID',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      // HomeScreen langsung jadi initial route — tidak ada lagi
+      // _RootGuard yang mengecek status auth sebelum render.
+      // AuthProvider.init() berjalan di background; HomeScreen sendiri
+      // yang akan reaktif menampilkan tombol Login vs Avatar profil.
       initialRoute: '/',
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
@@ -91,18 +105,46 @@ class DonateIDApp extends StatelessWidget {
 class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
-      case '/':          return _fade(const _RootGuard());
-      case '/login':     return _slide(const LoginScreen());
-      case '/register':  return _slide(const RegisterScreen());
-      case '/donor':
-        return _fade(const _AuthGuard(role: UserRole.donatur,
-            child: DonorDashboardScreen()));
-      case '/fundraiser':
-        return _fade(const _AuthGuard(role: UserRole.fundraiser,
-            child: FundraiserDashboardScreen()));
-      case '/admin':
-        return _fade(const _AuthGuard(role: UserRole.admin,
-            child: AdminDashboardScreen()));
+      case '/':
+        // HomeScreen SELALU jadi root — untuk guest, donor, fundraiser, admin.
+        return _fade(const HomeScreen());
+
+      case '/login':
+        return _slide(const LoginScreen());
+
+      case '/register':
+        return _slide(const RegisterScreen());
+
+      // Dashboard sekarang dibuka lewat PUSH biasa (lihat home_screen.dart),
+      // bukan lagi root route yang menggantikan HomeScreen.
+      // _AuthGuard tetap dipakai di sini untuk proteksi role,
+      // tapi TIDAK PERNAH dipanggil sebagai initial/root route lagi.
+      case '/dashboard/donor':
+        return _slide(const _AuthGuard(
+          role: UserRole.donatur,
+          child: DonorDashboardScreen(),
+        ));
+      case '/dashboard/fundraiser':
+        return _slide(const _AuthGuard(
+          role: UserRole.fundraiser,
+          child: FundraiserDashboardScreen(),
+        ));
+      case '/dashboard/admin':
+        return _slide(const _AuthGuard(
+          role: UserRole.admin,
+          child: AdminDashboardScreen(),
+        ));
+
+      // ── Route baru ──────────────────────────────────
+      case '/profile':
+        return _slide(const _AuthGuard(child: ProfileScreen()));
+
+      case '/donation-history':
+        return _slide(const _AuthGuard(
+          role: UserRole.donatur,
+          child: DonationHistoryScreen(),
+        ));
+
       default:
         return _fade(const HomeScreen());
     }
@@ -128,72 +170,52 @@ class AppRouter {
 }
 
 // ─────────────────────────────────────────────────────────
-// ROOT GUARD
-// ─────────────────────────────────────────────────────────
-
-class _RootGuard extends StatefulWidget {
-  const _RootGuard();
-  @override
-  State<_RootGuard> createState() => _RootGuardState();
-}
-
-class _RootGuardState extends State<_RootGuard> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _redirect());
-  }
-
-  void _redirect() {
-    if (!mounted) return;
-    final auth = context.read<AuthProvider>();
-    if (auth.isAuthenticated) {
-      Navigator.of(context)
-          .pushReplacementNamed(_dashboardRoute(auth));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    if (auth.status == AuthStatus.initial) return const _SplashScreen();
-    return const HomeScreen();
-  }
-}
-
-// ─────────────────────────────────────────────────────────
 // AUTH GUARD
+//
+// PERUBAHAN: guard ini sekarang HANYA dipakai untuk melindungi
+// route yang di-PUSH (dashboard, profile, donation-history),
+// bukan lagi sebagai gatekeeper root '/'. Kalau auth gagal atau
+// role salah, guard akan pop() balik ke halaman sebelumnya
+// (bukan pushReplacementNamed ke halaman lain) — supaya history
+// stack tetap bersih dan tombol back tetap masuk akal.
 // ─────────────────────────────────────────────────────────
 
 class _AuthGuard extends StatelessWidget {
   final Widget child;
-  final UserRole role;
-  const _AuthGuard({required this.child, required this.role});
+  final UserRole? role; // null = boleh role apapun, asal sudah login
+  const _AuthGuard({required this.child, this.role});
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    if (auth.status == AuthStatus.initial) return const _SplashScreen();
 
-    if (!auth.isAuthenticated) {
-      WidgetsBinding.instance.addPostFrameCallback((_) =>
-          Navigator.of(context).pushReplacementNamed('/login'));
+    if (auth.status == AuthStatus.initial) {
       return const _SplashScreen();
     }
 
-    if (auth.currentUser!.role != role) {
-      WidgetsBinding.instance.addPostFrameCallback((_) =>
-          Navigator.of(context)
-              .pushReplacementNamed(_dashboardRoute(auth)));
+    if (!auth.isAuthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+        Navigator.of(context).push(LoginScreen.route());
+      });
+      return const _SplashScreen();
+    }
+
+    if (role != null && auth.currentUser!.role != role) {
+      // Role tidak cocok — pop balik daripada redirect paksa ke dashboard lain.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      });
       return const _SplashScreen();
     }
 
     return child;
   }
 }
-
-String _dashboardRoute(AuthProvider auth) =>
-    auth.isAdmin ? '/admin' : auth.isFundraiser ? '/fundraiser' : '/donor';
 
 // ─────────────────────────────────────────────────────────
 // SPLASH

@@ -1,15 +1,27 @@
 // lib/screens/dashboard/donor_dashboard_screen.dart
+//
+// PERUBAHAN BESAR:
+// Sebelumnya screen ini meniru HomeScreen (hero section, campaign grid,
+// "Mulai Berdonasi" CTA) — sehingga peran dashboard dan homepage tumpang
+// tindih, dan terasa seperti dua homepage berbeda.
+//
+// Sekarang dashboard donatur HANYA berisi 3 fungsi sesuai requirement:
+//   1. Ringkasan donasi (total + jumlah) — bukan daftar kampanye publik
+//   2. Link ke Riwayat Donasi (DonationHistoryScreen, screen terpisah)
+//   3. Link ke Profil (ProfileScreen)
+//
+// AppBar ditambahkan tombol back eksplisit ke Home — sebelumnya hanya
+// ada ikon logout, tidak ada cara kembali ke HomeScreen tanpa logout.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/campaign_provider.dart';
 import '../../providers/donation_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/app_widgets.dart';
-import '../campaigns/campaign_list_screen.dart';
-import '../campaigns/campaign_detail_screen.dart';
+import '../donation/donation_history_screen.dart';
+import '../profile/profile_screen.dart';
 
 class DonorDashboardScreen extends StatefulWidget {
   const DonorDashboardScreen({super.key});
@@ -23,193 +35,222 @@ class _DonorDashboardScreenState extends State<DonorDashboardScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<DonationProvider>().loadMyDonations();
-      context.read<CampaignProvider>().loadActive();
     });
-  }
-
-  Future<void> _onRefresh() async {
-    await context.read<DonationProvider>().loadMyDonations();
-    await context.read<CampaignProvider>().loadActive();
   }
 
   @override
   Widget build(BuildContext context) {
-    final auth         = context.watch<AuthProvider>();
-    final user          = auth.currentUser!;
-    final donProvider  = context.watch<DonationProvider>();
-    final campProvider = context.watch<CampaignProvider>();
+    final auth        = context.watch<AuthProvider>();
+    final user         = auth.currentUser!;
+    final donProvider = context.watch<DonationProvider>();
     final tt           = Theme.of(context).textTheme;
 
     final myDonations  = donProvider.myDonations;
     final totalDonated = myDonations.fold(0.0, (s, d) => s + d.amount);
 
     return Scaffold(
+      // ── PERUBAHAN: AppBar dengan tombol back eksplisit ──
+      // Sebelumnya tidak ada AppBar standar di sini (pakai SliverAppBar
+      // custom tanpa tombol back). Sekarang back button bawaan Flutter
+      // otomatis muncul karena screen ini di-push (bukan replace),
+      // dan kita pastikan leading-nya jelas mengarah pop ke Home.
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.ink900),
+          tooltip: 'Kembali ke Beranda',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text('Dashboard Donatur'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: AppColors.ink600),
+            tooltip: 'Keluar',
+            onPressed: () async {
+              await auth.logout();
+              if (context.mounted) {
+                // Logout dari dalam dashboard: pop balik ke Home,
+                // HomeScreen otomatis re-render jadi state guest.
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.ink200),
+        ),
+      ),
       body: Column(
         children: [
           Container(height: 4, color: AppColors.brand700),
           Expanded(
             child: RefreshIndicator(
               color: AppColors.brand700,
-              onRefresh: _onRefresh,
-              child: CustomScrollView(
+              onRefresh: () => context.read<DonationProvider>().loadMyDonations(),
+              child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverAppBar(
-                    pinned: true,
-                    backgroundColor: Colors.white,
-                    elevation: 0,
-                    surfaceTintColor: Colors.transparent,
-                    leading: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: UserAvatar(initial: user.initial, size: 36),
-                    ),
-                    title: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Greeting
+                    Row(
                       children: [
-                        Text('Halo, ${user.name.split(' ').first}! 👋',
-                            style: tt.headlineSmall),
-                        Text('Dashboard Donatur', style: tt.bodySmall),
+                        UserAvatar(initial: user.initial, size: 48),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Halo, ${user.name.split(' ').first}! 👋',
+                                  style: tt.headlineSmall),
+                              Text(user.email, style: tt.bodySmall),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
-                    actions: [
-                      IconButton(
-                        icon: const Icon(Icons.logout, color: AppColors.ink600),
-                        onPressed: () async {
-                          await auth.logout();
-                          if (context.mounted) {
-                            Navigator.of(context)
-                                .pushNamedAndRemoveUntil('/', (_) => false);
-                          }
-                        },
+                    const SizedBox(height: 24),
+
+                    // Ringkasan donasi — bukan daftar kampanye publik
+                    Row(children: [
+                      Expanded(child: StatCard(
+                        label: 'Total Donasi',
+                        value: fmtMoney(totalDonated),
+                        icon: Icons.favorite_outline,
+                        iconColor: AppColors.brand700,
+                        iconBg: AppColors.brand50,
+                      )),
+                      const SizedBox(width: 12),
+                      Expanded(child: StatCard(
+                        label: 'Kampanye Didukung',
+                        value: '${myDonations.length}',
+                        icon: Icons.campaign_outlined,
+                        iconColor: const Color(0xFF1E40AF),
+                        iconBg: const Color(0xFFDBEAFE),
+                      )),
+                    ]),
+                    const SizedBox(height: 28),
+
+                    // ── Fungsi utama dashboard donatur ──
+                    Text('Menu Saya', style: tt.headlineSmall),
+                    const SizedBox(height: 12),
+
+                    _DashboardMenuTile(
+                      icon: Icons.history_outlined,
+                      iconBg: AppColors.brand50,
+                      iconColor: AppColors.brand700,
+                      title: 'Riwayat Donasi',
+                      subtitle: 'Lihat semua donasi yang sudah kamu lakukan',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const DonationHistoryScreen()),
                       ),
-                    ],
-                    bottom: PreferredSize(
-                      preferredSize: const Size.fromHeight(1),
-                      child: Container(height: 1, color: AppColors.ink200),
                     ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.all(20),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        Row(children: [
-                          Expanded(child: StatCard(
-                            label: 'Total Donasi',
-                            value: fmtMoney(totalDonated),
-                            icon: Icons.favorite_outline,
-                            iconColor: AppColors.brand700,
-                            iconBg: AppColors.brand50,
-                          )),
-                          const SizedBox(width: 12),
-                          Expanded(child: StatCard(
-                            label: 'Kampanye Didukung',
-                            value: '${myDonations.length}',
-                            icon: Icons.campaign_outlined,
-                            iconColor: const Color(0xFF1E40AF),
-                            iconBg: const Color(0xFFDBEAFE),
-                          )),
-                        ]),
-                        const SizedBox(height: 28),
+                    const SizedBox(height: 12),
 
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppColors.brand800, AppColors.brand600],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(children: [
-                            Expanded(child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Mulai Berdonasi',
-                                    style: tt.headlineSmall
-                                        ?.copyWith(color: Colors.white)),
-                                const SizedBox(height: 4),
-                                Text('Temukan kampanye yang membutuhkan bantuanmu',
-                                    style: tt.bodySmall
-                                        ?.copyWith(color: Colors.white70)),
-                                const SizedBox(height: 14),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: AppColors.brand700,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 18, vertical: 10),
-                                  ),
-                                  onPressed: () => Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                          builder: (_) =>
-                                              const CampaignListScreen())),
-                                  child: const Text('Lihat Kampanye'),
-                                ),
-                              ],
-                            )),
-                            const Icon(Icons.volunteer_activism,
-                                color: Colors.white24, size: 56),
-                          ]),
-                        ),
-                        const SizedBox(height: 28),
-
-                        const SectionHeader(title: 'Riwayat Donasiku'),
-                        const SizedBox(height: 12),
-                        if (myDonations.isEmpty)
-                          const EmptyState(
-                            icon: Icons.history_outlined,
-                            title: 'Belum ada donasi',
-                            subtitle: 'Yuk, mulai berdonasi dan bantu sesama!',
-                          )
-                        else
-                          Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: AppColors.ink200),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Column(
-                                children: myDonations
-                                    .map((d) => DonationTile(donation: d))
-                                    .toList(),
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 28),
-
-                        SectionHeader(
-                          title: 'Kampanye Untukmu',
-                          actionLabel: 'Lihat semua',
-                          onAction: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                  builder: (_) => const CampaignListScreen())),
-                        ),
-                        const SizedBox(height: 12),
-                        if (campProvider.loading)
-                          const LoadingOverlay()
-                        else
-                          ...campProvider.activeCampaigns.take(3).map((c) =>
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 14),
-                                child: CampaignCard(
-                                  campaign: c,
-                                  onTap: () => Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                          builder: (_) => CampaignDetailScreen(
-                                              campaignId: c.id))),
-                                ),
-                              )),
-                        const SizedBox(height: 20),
-                      ]),
+                    _DashboardMenuTile(
+                      icon: Icons.bookmark_outline,
+                      iconBg: const Color(0xFFDBEAFE),
+                      iconColor: const Color(0xFF1E40AF),
+                      title: 'Kampanye Tersimpan',
+                      subtitle: 'Kampanye yang kamu tandai untuk dilihat lagi',
+                      onTap: () {
+                        // Placeholder — fitur saved campaign belum ada
+                        // endpoint API-nya, jadi UI disiapkan tapi
+                        // belum difungsikan penuh (sesuai instruksi:
+                        // tidak menambah endpoint Laravel baru).
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Fitur ini akan segera hadir')),
+                        );
+                      },
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+
+                    _DashboardMenuTile(
+                      icon: Icons.person_outline,
+                      iconBg: const Color(0xFFD1FAE5),
+                      iconColor: const Color(0xFF065F46),
+                      title: 'Pengaturan Profil',
+                      subtitle: 'Kelola data diri dan preferensi akun',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const ProfileScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MENU TILE — reusable, dipakai juga di fundraiser/admin dashboard
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DashboardMenuTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _DashboardMenuTile({
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.ink200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: tt.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: tt.bodySmall),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.ink500),
+          ],
+        ),
       ),
     );
   }

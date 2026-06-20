@@ -1,4 +1,13 @@
 // lib/screens/auth/register_screen.dart
+//
+// PERUBAHAN NAVIGASI:
+// Setelah register berhasil, sebelumnya push ke dashboard dan menghapus
+// stack. Sekarang Navigator.popUntil() dipakai untuk kembali sampai ke
+// HomeScreen — karena RegisterScreen ada DI ATAS LoginScreen di stack
+// (push dari LoginScreen), perlu pop 2 layar sekaligus: RegisterScreen
+// dan LoginScreen, supaya user mendarat balik di HomeScreen.
+//
+// UI/desain TIDAK diubah — hanya logika navigasi setelah submit.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -46,13 +55,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       role: _role,
     );
     if (!mounted) return;
+
     if (ok) {
-      final route = switch (auth.currentUser!.role) {
-        UserRole.admin      => '/admin',
-        UserRole.fundraiser => '/fundraiser',
-        UserRole.donatur    => '/donor',
-      };
-      Navigator.of(context).pushNamedAndRemoveUntil(route, (_) => false);
+      // PERUBAHAN: popUntil ke route pertama (HomeScreen), bukan push
+      // ke dashboard. RegisterScreen + LoginScreen sama-sama ditutup,
+      // user mendarat di HomeScreen dengan status sudah login.
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -74,7 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(color: AppColors.ink900),
-        title: const DonateIDLogo(size: 28),
+        title: DonateIDLogo(size: 28),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -93,7 +101,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    // Name
                     TextFormField(
                       controller: _nameCtrl,
                       textInputAction: TextInputAction.next,
@@ -110,7 +117,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Email
                     TextFormField(
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
@@ -127,7 +133,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Password
                     TextFormField(
                       controller: _passCtrl,
                       obscureText: _obscurePass,
@@ -152,7 +157,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Confirm password
                     TextFormField(
                       controller: _confirmCtrl,
                       obscureText: _obscureConfirm,
@@ -179,7 +183,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Role selector
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

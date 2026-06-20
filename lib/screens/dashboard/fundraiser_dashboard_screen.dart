@@ -20,8 +20,7 @@ class FundraiserDashboardScreen extends StatefulWidget {
       _FundraiserDashboardScreenState();
 }
 
-class _FundraiserDashboardScreenState
-    extends State<FundraiserDashboardScreen> {
+class _FundraiserDashboardScreenState extends State<FundraiserDashboardScreen> {
   @override
   void initState() {
     super.initState();
@@ -39,21 +38,21 @@ class _FundraiserDashboardScreenState
   }
 
   void _openCreate(BuildContext context) {
-    Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const CreateCampaignScreen()));
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const CreateCampaignScreen()));
   }
 
   @override
   Widget build(BuildContext context) {
-    final auth      = context.watch<AuthProvider>();
-    final user      = auth.currentUser!;
+    final auth = context.watch<AuthProvider>();
+    final user = auth.currentUser!;
     final campaigns = context.watch<CampaignProvider>();
     final donations = context.watch<DonationProvider>();
-    final tt        = Theme.of(context).textTheme;
+    final tt = Theme.of(context).textTheme;
 
-    final myCampaigns    = campaigns.myCampaigns;
+    final myCampaigns = campaigns.myCampaigns;
     final totalCollected = myCampaigns.fold(0.0, (s, c) => s + c.collected);
-    final totalDonors    = myCampaigns.fold(0, (s, c) => s + c.donors);
+    final totalDonors = myCampaigns.fold(0, (s, c) => s + c.donors);
 
     // Donasi yang masuk ke kampanye milik fundraiser ini saja
     final myCampaignIds = myCampaigns.map((c) => c.id).toSet();
@@ -79,9 +78,11 @@ class _FundraiserDashboardScreenState
                     backgroundColor: Colors.white,
                     elevation: 0,
                     surfaceTintColor: Colors.transparent,
-                    leading: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: UserAvatar(initial: user.initial, size: 36),
+                    leading: IconButton(
+                      icon:
+                          const Icon(Icons.arrow_back, color: AppColors.ink900),
+                      tooltip: 'Kembali ke Beranda',
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                     title: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,7 +119,8 @@ class _FundraiserDashboardScreenState
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
                         Row(children: [
-                          Expanded(child: StatCard(
+                          Expanded(
+                              child: StatCard(
                             label: 'Dana Terkumpul',
                             value: fmtMoney(totalCollected),
                             icon: Icons.savings_outlined,
@@ -126,7 +128,8 @@ class _FundraiserDashboardScreenState
                             iconBg: AppColors.brand50,
                           )),
                           const SizedBox(width: 12),
-                          Expanded(child: StatCard(
+                          Expanded(
+                              child: StatCard(
                             label: 'Total Donatur',
                             value: '$totalDonors',
                             icon: Icons.people_outline,
@@ -143,7 +146,6 @@ class _FundraiserDashboardScreenState
                           iconBg: const Color(0xFFD1FAE5),
                         ),
                         const SizedBox(height: 28),
-
                         SectionHeader(
                           title: 'Kampanyeku',
                           actionLabel: '+ Buat Baru',
@@ -175,7 +177,6 @@ class _FundraiserDashboardScreenState
                                 ),
                               )),
                         const SizedBox(height: 28),
-
                         const SectionHeader(title: 'Donasi Terbaru'),
                         const SizedBox(height: 12),
                         if (myDonations.isEmpty)
@@ -234,9 +235,12 @@ class _MyCampaignTile extends StatelessWidget {
         child: Row(children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: SizedBox(width: 56, height: 56,
+            child: SizedBox(
+              width: 56,
+              height: 56,
               child: campaign.imageUrl.isNotEmpty
-                  ? Image.network(campaign.imageUrl, fit: BoxFit.cover,
+                  ? Image.network(campaign.imageUrl,
+                      fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) =>
                           Container(color: AppColors.ink100))
                   : Container(color: AppColors.ink100),
@@ -261,8 +265,7 @@ class _MyCampaignTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   '${fmtMoney(campaign.collected)} / ${fmtMoney(campaign.target)}',
-                  style: tt.bodySmall
-                      ?.copyWith(color: AppColors.brand700),
+                  style: tt.bodySmall?.copyWith(color: AppColors.brand700),
                 ),
                 const SizedBox(height: 6),
                 ClipRRect(

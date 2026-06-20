@@ -1,8 +1,16 @@
 // lib/screens/auth/login_screen.dart
+//
+// PERUBAHAN NAVIGASI:
+// Setelah login berhasil, sebelumnya kode push ke dashboard via
+// pushNamedAndRemoveUntil() yang menghapus HomeScreen dari stack.
+// Sekarang cukup Navigator.pop() — karena LoginScreen selalu dibuka
+// dengan push() dari atas HomeScreen (atau dari CampaignDetail saat
+// guest mencoba donasi), pop() akan otomatis kembali ke pemanggil asal.
+//
+// UI/desain TIDAK diubah — hanya logika navigasi setelah submit.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_widgets.dart';
@@ -36,8 +44,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.read<AuthProvider>();
     final ok = await auth.login(_emailCtrl.text.trim(), _passCtrl.text);
     if (!mounted) return;
+
     if (ok) {
-      _navigateByRole(auth.currentUser!.role);
+      // PERUBAHAN: pop balik ke HomeScreen (atau halaman pemanggil),
+      // bukan push ke dashboard. User tetap di HomeScreen setelah login,
+      // dan bisa membuka dashboard manual lewat tombol di AppBar/menu.
+      Navigator.of(context).pop();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -50,32 +62,33 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _navigateByRole(UserRole role) {
-    final route = switch (role) {
-      UserRole.admin      => '/admin',
-      UserRole.fundraiser => '/fundraiser',
-      UserRole.donatur    => '/donor',
-    };
-    Navigator.of(context).pushNamedAndRemoveUntil(route, (_) => false);
-  }
-
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
+      // AppBar ditambahkan dengan tombol close (X) karena LoginScreen
+      // sekarang berperan sebagai halaman modal-like yang dibuka dari
+      // HomeScreen — bukan initial route lagi.
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: AppColors.ink900),
+          tooltip: 'Tutup',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 32),
-              const Center(child: DonateIDLogo(size: 44)),
+              Center(child: DonateIDLogo(size: 44)),
               const SizedBox(height: 32),
 
-              // Header
               Text('Selamat datang kembali',
                   style: tt.displaySmall, textAlign: TextAlign.center),
               const SizedBox(height: 8),
@@ -83,7 +96,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: tt.bodyMedium, textAlign: TextAlign.center),
               const SizedBox(height: 36),
 
-              // Form
               Form(
                 key: _formKey,
                 child: Column(
@@ -129,7 +141,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 28),
 
-              // Submit
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
@@ -146,27 +157,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Demo hint
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.ink50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Text('Akun Demo', style: tt.labelMedium),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Admin: admin@donateid.org / admin123',
-                      style: tt.bodySmall?.copyWith(fontFamily: 'monospace'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // Register link
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
