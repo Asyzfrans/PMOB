@@ -1,6 +1,12 @@
 // lib/screens/dashboard/create_campaign_screen.dart
+//
+// FIX: Image.file() tidak didukung di Flutter Web.
+// Sekarang pakai kIsWeb check — di Web tidak tampilkan preview file,
+// hanya tampilkan nama file yang dipilih. Di Android/iOS tetap
+// tampilkan preview gambar seperti sebelumnya.
 
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,13 +25,15 @@ class CreateCampaignScreen extends StatefulWidget {
 }
 
 class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
-  final _formKey   = GlobalKey<FormState>();
-  final _titleCtrl = TextEditingController();
-  final _descCtrl  = TextEditingController();
-  final _targetCtrl= TextEditingController();
+  final _formKey    = GlobalKey<FormState>();
+  final _titleCtrl  = TextEditingController();
+  final _descCtrl   = TextEditingController();
+  final _targetCtrl = TextEditingController();
+
   CampaignCategory _category = CampaignCategory.sosial;
   DateTime? _deadline;
   File?     _imageFile;
+  String?   _imageFileName; // untuk tampilkan nama file di Web
   bool      _uploadingImage = false;
 
   @override
@@ -43,7 +51,13 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
       imageQuality: 85,
     );
     if (picked != null) {
-      setState(() => _imageFile = File(picked.path));
+      setState(() {
+        _imageFileName = picked.name;
+        // Image.file hanya aman di mobile (bukan web)
+        if (!kIsWeb) {
+          _imageFile = File(picked.path);
+        }
+      });
     }
   }
 
@@ -75,7 +89,7 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
       target:      double.parse(_targetCtrl.text.replaceAll('.', '')),
       category:    _category,
       creator:     user,
-      imageFile:   _imageFile,
+      imageFile:   _imageFile, // null di Web — server akan skip upload
       deadline:    _deadline,
     );
 
@@ -85,7 +99,8 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
         context: context,
         barrierDismissible: false,
         builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20)),
           title: const Text('Kampanye Dikirim!'),
           content: const Text(
             'Kampanyemu sedang direview oleh admin.\n'
@@ -94,8 +109,8 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
           actions: [
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).pop();
+                Navigator.of(context).pop(); // tutup dialog
+                Navigator.of(context).pop(); // kembali ke dashboard
               },
               child: const Text('Oke'),
             ),
@@ -113,6 +128,92 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
     }
   }
 
+  // Widget preview gambar — platform-aware
+  Widget _buildImagePicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GestureDetector(
+          onTap: _pickImage,
+          child: Container(
+            height: 160,
+            decoration: BoxDecoration(
+              color: AppColors.ink50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.ink200),
+            ),
+            child: _buildImagePreview(),
+          ),
+        ),
+        if (_imageFileName != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _imageFileName!,
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.ink600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => setState(() {
+                    _imageFile = null;
+                    _imageFileName = null;
+                  }),
+                  icon: const Icon(Icons.delete_outline, size: 14),
+                  label: const Text('Hapus'),
+                  style: TextButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      textStyle: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildImagePreview() {
+    // Android / iOS — tampilkan preview gambar asli
+    if (!kIsWeb && _imageFile != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: Image.file(
+          _imageFile!,
+          fit: BoxFit.cover,
+          width: double.infinity,
+        ),
+      );
+    }
+
+    // Web / belum pilih gambar — tampilkan placeholder
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          _imageFileName != null
+              ? Icons.check_circle_outline
+              : Icons.add_photo_alternate_outlined,
+          size: 40,
+          color: _imageFileName != null
+              ? AppColors.success
+              : AppColors.ink500,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _imageFileName != null
+              ? 'Gambar dipilih ✓\n(tap untuk ganti)'
+              : 'Tap untuk pilih gambar',
+          style: const TextStyle(fontSize: 12, color: AppColors.ink500),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tt      = Theme.of(context).textTheme;
@@ -121,6 +222,7 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Buat Kampanye'),
+        leading: const BackButton(),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: AppColors.ink200),
@@ -149,7 +251,8 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Kampanyemu akan diverifikasi admin sebelum ditampilkan ke publik.',
+                        'Kampanyemu akan diverifikasi admin sebelum '
+                        'ditampilkan ke publik.',
                         style: tt.bodySmall
                             ?.copyWith(color: const Color(0xFF92400E)),
                       ),
@@ -159,48 +262,11 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── Gambar ──
               _Label('Foto Kampanye'),
               const SizedBox(height: 8),
-              GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  height: 180,
-                  decoration: BoxDecoration(
-                    color: AppColors.ink50,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: AppColors.ink200, style: BorderStyle.solid),
-                  ),
-                  child: _imageFile != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: Image.file(_imageFile!, fit: BoxFit.cover,
-                              width: double.infinity),
-                        )
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.add_photo_alternate_outlined,
-                                size: 40, color: AppColors.ink500),
-                            const SizedBox(height: 8),
-                            Text('Tap untuk pilih gambar',
-                                style: tt.bodySmall),
-                          ],
-                        ),
-                ),
-              ),
-              if (_imageFile != null)
-                TextButton.icon(
-                  onPressed: () => setState(() => _imageFile = null),
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Hapus gambar'),
-                  style: TextButton.styleFrom(
-                      foregroundColor: AppColors.error),
-                ),
+              _buildImagePicker(),
               const SizedBox(height: 20),
 
-              // ── Judul ──
               _Label('Judul Kampanye *'),
               const SizedBox(height: 8),
               TextFormField(
@@ -212,14 +278,15 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
                   counterText: '',
                 ),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Judul wajib diisi';
-                  if (v.trim().length < 10) return 'Judul minimal 10 karakter';
+                  if (v == null || v.trim().isEmpty)
+                    return 'Judul wajib diisi';
+                  if (v.trim().length < 10)
+                    return 'Judul minimal 10 karakter';
                   return null;
                 },
               ),
               const SizedBox(height: 20),
 
-              // ── Deskripsi ──
               _Label('Deskripsi *'),
               const SizedBox(height: 8),
               TextFormField(
@@ -227,9 +294,7 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
                 maxLines: 6,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
-                  hintText:
-                      'Ceritakan tujuan kampanye, siapa yang akan dibantu, '
-                      'dan bagaimana dana akan digunakan...',
+                  hintText: 'Ceritakan tujuan kampanye...',
                   alignLabelWithHint: true,
                 ),
                 validator: (v) {
@@ -242,7 +307,6 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── Target ──
               _Label('Target Dana (Rp) *'),
               const SizedBox(height: 8),
               TextFormField(
@@ -263,7 +327,6 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── Kategori ──
               _Label('Kategori *'),
               const SizedBox(height: 8),
               Wrap(
@@ -293,7 +356,9 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: selected ? Colors.white : AppColors.ink700,
+                          color: selected
+                              ? Colors.white
+                              : AppColors.ink700,
                         ),
                       ),
                     ),
@@ -302,7 +367,6 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── Deadline ──
               _Label('Tenggat Waktu (opsional)'),
               const SizedBox(height: 8),
               GestureDetector(
@@ -348,7 +412,8 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
                   onPressed: loading ? null : _submit,
                   child: loading
                       ? const SizedBox(
-                          width: 22, height: 22,
+                          width: 22,
+                          height: 22,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
                       : const Row(
@@ -373,8 +438,11 @@ class _CreateCampaignScreenState extends State<CreateCampaignScreen> {
 class _Label extends StatelessWidget {
   final String text;
   const _Label(this.text);
+
   @override
   Widget build(BuildContext context) => Text(text,
       style: const TextStyle(
-          fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.ink900));
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: AppColors.ink900));
 }
