@@ -26,12 +26,12 @@ class ApiClient {
   static String get _baseUrl {
     if (kIsWeb) {
       // Flutter Web (Chrome, Edge) — pakai virtual host Laragon
-      return 'http://donateid.test/api';
+      return 'https://donateid-api-production.up.railway.app/api';
     }
     try {
       if (Platform.isAndroid) {
         // Android Emulator — 10.0.2.2 adalah alias ke localhost komputer
-        return 'http://10.0.2.2/api';
+        return 'https://donateid-api-production.up.railway.app/api';
       }
       if (Platform.isIOS) {
         return 'http://127.0.0.1/api';
@@ -50,7 +50,7 @@ class ApiClient {
   Future<Map<String, String>> _headers({bool auth = true}) async {
     final h = <String, String>{
       'Content-Type': 'application/json',
-      'Accept':       'application/json',
+      'Accept': 'application/json',
     };
     if (auth) {
       final token = await _tokenStorage.getToken();
@@ -65,8 +65,7 @@ class ApiClient {
     Map<String, String>? query,
     bool auth = true,
   }) async {
-    final uri = Uri.parse('$_baseUrl$path')
-        .replace(queryParameters: query);
+    final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: query);
     final res = await http
         .get(uri, headers: await _headers(auth: auth))
         .timeout(const Duration(seconds: 30));
@@ -82,8 +81,7 @@ class ApiClient {
     final uri = Uri.parse('$_baseUrl$path');
     final res = await http
         .post(uri,
-            headers: await _headers(auth: auth),
-            body: jsonEncode(body ?? {}))
+            headers: await _headers(auth: auth), body: jsonEncode(body ?? {}))
         .timeout(const Duration(seconds: 30));
     return _handle(res);
   }
@@ -97,8 +95,7 @@ class ApiClient {
     final uri = Uri.parse('$_baseUrl$path');
     final res = await http
         .put(uri,
-            headers: await _headers(auth: auth),
-            body: jsonEncode(body ?? {}))
+            headers: await _headers(auth: auth), body: jsonEncode(body ?? {}))
         .timeout(const Duration(seconds: 30));
     return _handle(res);
   }
@@ -123,7 +120,7 @@ class ApiClient {
     String imageField = 'image',
     bool auth = true,
   }) async {
-    final uri     = Uri.parse('$_baseUrl$path');
+    final uri = Uri.parse('$_baseUrl$path');
     final headers = await _headers(auth: auth);
     headers.remove('Content-Type');
 
@@ -132,12 +129,11 @@ class ApiClient {
       ..fields.addAll(fields);
 
     if (imageFile != null) {
-      request.files.add(
-          await http.MultipartFile.fromPath(imageField, imageFile.path));
+      request.files
+          .add(await http.MultipartFile.fromPath(imageField, imageFile.path));
     }
 
-    final streamed = await request.send()
-        .timeout(const Duration(seconds: 60));
+    final streamed = await request.send().timeout(const Duration(seconds: 60));
     final res = await http.Response.fromStream(streamed);
     return _handle(res);
   }
