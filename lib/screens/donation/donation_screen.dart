@@ -53,7 +53,7 @@ class _DonationScreenState extends State<DonationScreen> {
     }
 
     final donation = await context.read<DonationProvider>().donate(
-      campaignId: widget.campaign.id,  // int sekarang
+      campaignId: widget.campaign.id,
       amount:     amount,
       method:     _method,
       anon:       _anon,
@@ -84,6 +84,9 @@ class _DonationScreenState extends State<DonationScreen> {
       context: context,
       isDismissible: false,
       enableDrag: false,
+      // FIX: isScrollControlled=true supaya bottom sheet bisa
+      // menyesuaikan tinggi konten dan tidak terpotong di layar kecil
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (_) => _SuccessSheet(
@@ -339,6 +342,10 @@ class _MethodTile extends StatelessWidget {
   );
 }
 
+// FIX OVERFLOW: Bungkus seluruh konten dengan SingleChildScrollView
+// supaya konten bisa di-scroll kalau layar HP terlalu kecil.
+// isScrollControlled=true di showModalBottomSheet mengizinkan
+// bottom sheet mengambil tinggi lebih dari 50% layar.
 class _SuccessSheet extends StatelessWidget {
   final DonationModel donation;
   final VoidCallback onDone;
@@ -347,42 +354,56 @@ class _SuccessSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-          24, 28, 24, 24 + MediaQuery.of(context).padding.bottom),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          width: 72, height: 72,
-          decoration: BoxDecoration(
-              color: const Color(0xFFDCFCE7),
-              borderRadius: BorderRadius.circular(24)),
-          child: const Icon(Icons.check, color: AppColors.success, size: 36),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            24, 28, 24, 24 + MediaQuery.of(context).padding.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                  color: AppColors.ink200,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(24)),
+              child: const Icon(Icons.check, color: AppColors.success, size: 36),
+            ),
+            const SizedBox(height: 20),
+            Text('Donasi Berhasil!', style: tt.headlineLarge),
+            const SizedBox(height: 8),
+            Text('Terima kasih atas kepedulianmu 💙',
+                style: tt.bodyMedium, textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                  color: AppColors.ink50,
+                  borderRadius: BorderRadius.circular(16)),
+              child: Column(children: [
+                _Row('ID Transaksi', donation.transactionId),
+                _Row('Kampanye', donation.campaignTitle),
+                _Row('Nominal', fmtMoney(donation.amount)),
+                _Row('Metode', donation.method.name.toUpperCase()),
+                _Row('Tanggal', fmtDate(donation.date)),
+              ]),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity, height: 52,
+              child: ElevatedButton(
+                  onPressed: onDone, child: const Text('Selesai')),
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
-        Text('Donasi Berhasil!', style: tt.headlineLarge),
-        const SizedBox(height: 8),
-        Text('Terima kasih atas kepedulianmu 💙',
-            style: tt.bodyMedium, textAlign: TextAlign.center),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-              color: AppColors.ink50,
-              borderRadius: BorderRadius.circular(16)),
-          child: Column(children: [
-            _Row('ID Transaksi', donation.transactionId),
-            _Row('Kampanye', donation.campaignTitle),
-            _Row('Nominal', fmtMoney(donation.amount)),
-            _Row('Metode', donation.method.name.toUpperCase()),
-            _Row('Tanggal', fmtDate(donation.date)),
-          ]),
-        ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity, height: 52,
-          child: ElevatedButton(onPressed: onDone, child: const Text('Selesai')),
-        ),
-      ]),
+      ),
     );
   }
 }
@@ -396,7 +417,13 @@ class _Row extends StatelessWidget {
     child: Row(children: [
       Text(label, style: const TextStyle(fontSize: 13, color: AppColors.ink600)),
       const Spacer(),
-      Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+      Flexible(
+        child: Text(value,
+            style: const TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700),
+            textAlign: TextAlign.right,
+            overflow: TextOverflow.ellipsis),
+      ),
     ]),
   );
 }
